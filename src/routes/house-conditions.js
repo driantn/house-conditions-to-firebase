@@ -2,33 +2,28 @@ import { Router } from 'express';
 import fbDatabaseRef from '/config/firebase';
 
 const router = Router();
+const MAX_ENTRIES = 1000;
 
-// save data to db
+// save data to firebase also remove old entries
 router.post('/house-conditions', async (req, res, next) => {
   const { temperature, humidity } = req.body;
   const timestamp = Math.floor(new Date().getTime() / 1000);
   try {
-    // const newEntry = fbDatabaseRef.push();
-    // newEntry.set({
-    //   temperature,
-    //   humidity,
-    //   timestamp,
-    // });
     const entry = await fbDatabaseRef.once('value');
-    const entryData = entry.val();
-    console.log(entryData);
-    if (!entryData) {
-      const newEntry = fbDatabaseRef.push();
-      newEntry.set({
-        temperature,
-        humidity,
-        timestamp,
-      });
-    } else {
-      const [key] = Object.keys(entryData);
-      console.log(key);
-      fbDatabaseRef.child(key).update({ temperature, humidity, timestamp });
+    const count = entry.numChildren();
+
+    if (count > MAX_ENTRIES) {
+      const updates = {};
+      entry.forEach((child) => (updates[child.key] = null));
+      fbDatabaseRef.update(updates);
     }
+
+    const newEntry = fbDatabaseRef.push();
+    newEntry.set({
+      temperature,
+      humidity,
+      timestamp,
+    });
   } catch (error) {
     console.log('log', error);
   }
